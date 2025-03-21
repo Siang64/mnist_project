@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNIST 手寫辨識</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        canvas {
+            border: 2px solid white;
+            background-color: black;
+            cursor: crosshair;
+            max-width: 100%;
+            touch-action: none;
+        }
+        
+        button {
+            margin: 10px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            touch-action: manipulation;
+        }
+        
+        button:active {
+            background-color: #45a049;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin: 15px 0;
+        }
+        
+        h2 {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>手寫數字辨識</h1>
+        <canvas id="canvas" width="280" height="280"></canvas>
+        <br>
+        <button id="clearBtn">清除</button>
+        <button id="predictBtn">辨識</button>
+        <h2 id="result">預測結果：</h2>
+    </div>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const resultText = document.getElementById("result");
+        const clearBtn = document.getElementById("clearBtn");
+        const predictBtn = document.getElementById("predictBtn");
+
+        function initCanvas() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 15;
+            ctx.lineCap = "round";
+        }
+
+        let drawing = false;
+        let lastX = 0, lastY = 0;
+
+        function getCoordinates(event) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            if (event.touches && event.touches[0]) {
+                return [
+                    (event.touches[0].clientX - rect.left) * scaleX,
+                    (event.touches[0].clientY - rect.top) * scaleY
+                ];
+            }
+            return [
+                (event.clientX - rect.left) * scaleX,
+                (event.clientY - rect.top) * scaleY
+            ];
+        }
+
+        function startDraw(event) {
+            event.preventDefault();
+            drawing = true;
+            [lastX, lastY] = getCoordinates(event);
+        }
+
+        function endDraw(event) {
+            event.preventDefault();
+            drawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(event) {
+            event.preventDefault();
+            if (!drawing) return;
+            const [x, y] = getCoordinates(event);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            [lastX, lastY] = [x, y];
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            resultText.innerText = "預測結果：";
+        }
+
+        function predict() {
+            const image = canvas.toDataURL("image/png");
+            fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.prediction !== undefined) {
+                    resultText.innerText = `預測結果：${data.prediction}`;
+                } else {
+                    resultText.innerText = "預測失敗，請重試。";
+                }
+            })
+            .catch(error => {
+                console.error("錯誤:", error);
+                resultText.innerText = "發生錯誤，請檢查伺服器。";
+            });
+        }
+
+        // 滑鼠事件
+        canvas.addEventListener("mousedown", startDraw);
+        canvas.addEventListener("mousemove", draw);
+        canvas.addEventListener("mouseup", endDraw);
+        canvas.addEventListener("mouseout", endDraw);
+
+        // 觸控事件
+        canvas.addEventListener("touchstart", startDraw);
+        canvas.addEventListener("touchmove", draw);
+        canvas.addEventListener("touchend", endDraw);
+        canvas.addEventListener("touchcancel", endDraw);
+
+        clearBtn.addEventListener("click", clearCanvas);
+        predictBtn.addEventListener("click", predict);
+
+        // 防止手機上的滾動和縮放
+        document.body.addEventListener("touchstart", function(e) {
+            if (e.target == canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.body.addEventListener("touchend", function(e) {
+            if (e.target == canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.body.addEventListener("touchmove", function(e) {
+            if (e.target == canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        initCanvas();
+    </script>
+</body>
+</html>
