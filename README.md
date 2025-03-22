@@ -83,6 +83,4 @@ docker run -p 5000:5000 mnist-flask
 - Google Cloud Platform (GCP)
 - HTML + JavaScript 前端
 
-## 作者
-[你的 GitHub 或 LinkedIn 連結]
 
